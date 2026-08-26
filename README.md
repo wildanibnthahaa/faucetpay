@@ -223,21 +223,21 @@ The database is created automatically under the configured database path.
 ### Usage
 
 Run a single discovery cycle
-
+```
 python -m app.bot --config config.yaml --once
-
+```
 This performs one discovery and scoring cycle and then exits.
 
 Run the scheduler
-
+```
 python -m app.bot --config config.yaml
-
+```
 The scheduler periodically performs discovery and scoring according to the configured interval.
 
 Open the dashboard
-
+```
 python -m app.dashboard --config config.yaml
-
+```
 The dashboard displays stored earnings information, faucet statistics, and recent records.
 
 
@@ -271,9 +271,9 @@ Error information
 
 
 The default database location is:
-
+```
 data/recovery.db
-
+```
 SQLite WAL mode is enabled for improved reliability during normal application operation.
 
 
@@ -305,21 +305,21 @@ The resulting score is used to rank available tasks before they enter the schedu
 ### Testing
 
 Run the complete test suite:
-
+```
 pytest -q
-
+```
 Run a specific test module:
-
+```
 pytest tests/test_scoring.py -q
-
+```
 Run database tests:
-
+```
 pytest tests/test_database.py -q
-
+```
 Run discovery parser tests:
-
+```
 pytest tests/test_discovery.py -q
-
+```
 The test suite covers configuration loading, SQLite operations, discovery parsing, scoring behaviour, and scheduler logic.
 
 
@@ -328,21 +328,21 @@ The test suite covers configuration loading, SQLite operations, discovery parsin
 ### Docker
 
 Build the containers:
-
+```
 docker compose build
-
+```
 Start the application:
-
+```
 docker compose up -d
-
+```
 View logs:
-
+```
 docker compose logs -f faucetpay-recovery
-
+```
 Run the test suite inside the container:
-
+```
 docker compose run --rm faucetpay-recovery pytest -q
-
+```
 The SQLite database and application logs are persisted through mounted volumes.
 
 
