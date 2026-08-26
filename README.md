@@ -91,7 +91,7 @@ storage, scoring, scheduling, and monitoring can be developed independently.
 
 ---
 
-### Project Structure
+## Project Structure
 ```
 faucetpay/
 ├── app/
@@ -131,8 +131,8 @@ faucetpay/
 ```
 ---
 
-### Installation
-
+## Installation
+```
 Requirements
 
 Python 3.11 or newer
@@ -142,54 +142,54 @@ Git
 curl
 
 Playwright-compatible system dependencies
+```
 
-
-Clone the repository
-
+### Clone the repository
+```
 git clone https://github.com/wildanibnthahaa/faucetpay.git
 cd faucetpay
-
-Install Python
+```
+### Install Python
 
 If Python is not already installed:
-
+```
 curl -fsSL https://pyenv.run | bash
 
 Restart your shell and install Python 3.11:
 
 pyenv install 3.11
 pyenv local 3.11
-
+```
 Verify:
-
+```
 python --version
 
 Create a virtual environment
 
 python -m venv .venv
 source .venv/bin/activate
-
+```
 Install dependencies
-
+```
 pip install --upgrade pip
 pip install -r requirements.txt
-
+```
 Install Playwright Chromium
-
+```
 playwright install chromium
-
+```
 For Linux servers, install the required browser dependencies:
-
+```
 playwright install-deps chromium
-
+```
 
 ---
 
-### Configuration
+## Configuration
 
 The application uses config.yaml for configuration.
 
-## Example:
+### Example:
 ```
 database:
   path: "./data/recovery.db"
