@@ -1,22 +1,3 @@
-<p align="center">
-  <img src="docs/banner.svg" alt="FaucetPay Recovery Core" width="100%">
-</p>
-
-<h1 align="center">FaucetPay Recovery Core</h1>
-
-<p align="center">
-  Read-only discovery, task analysis, persistence, scheduling,
-  and observability for the public FaucetPay directory.
-</p>
-
-<p align="center">
-  <a href="#overview">Overview</a> ·
-  <a href="#architecture">Architecture</a> ·
-  <a href="#installation">Installation</a> ·
-  <a href="#configuration">Configuration</a> ·
-  <a href="#testing">Testing</a> ·
-  <a href="#roadmap">Roadmap</a>
-</p>
 
 <p align="center">
   <img src="docs/banner.svg" alt="FaucetPay Recovery Core" width="100%">
