@@ -151,6 +151,9 @@ class Bot:
             len(tasks),
         )
 
+        for faucet in faucets:
+            self.database.upsert_faucet(faucet)
+
         for task in tasks:
             self.database.upsert_task(task)
 

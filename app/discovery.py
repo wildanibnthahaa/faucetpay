@@ -141,13 +141,17 @@ class FaucetPayDirectory:
 
     @staticmethod
     def extract_faucet_links(
-        html: str,
+        html: str | BeautifulSoup,
         base_url: str,
     ) -> list[tuple[str, str]]:
         """
         Extract faucet detail links from directory HTML.
         """
-        soup = BeautifulSoup(html, "html.parser")
+        soup = (
+            html
+            if isinstance(html, BeautifulSoup)
+            else BeautifulSoup(html, "html.parser")
+        )
 
         results: dict[str, tuple[str, str]] = {}
 
@@ -166,6 +170,16 @@ class FaucetPayDirectory:
             results[url] = (name, url)
 
         return list(results.values())
+
+    @staticmethod
+    def _extract_faucet_links(
+        html: str,
+        base_url: str,
+    ) -> list[tuple[str, str]]:
+        return FaucetPayDirectory.extract_faucet_links(
+            html,
+            base_url,
+        )
 
     @staticmethod
     def parse_detail(
@@ -259,6 +273,18 @@ class FaucetPayDirectory:
             ),
             coins=tuple(sorted(set(coins))),
             discovered_at=datetime.now(timezone.utc),
+        )
+
+    @staticmethod
+    def _parse_detail(
+        name_hint: str,
+        url: str,
+        html: str,
+    ) -> Faucet:
+        return FaucetPayDirectory.parse_detail(
+            name_hint,
+            url,
+            html,
         )
 
     async def discover(

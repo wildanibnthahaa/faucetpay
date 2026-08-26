@@ -24,7 +24,7 @@ class DiscoveryConfig:
     enabled: bool
     directory_url: str
     refresh_seconds: int
-    max_faucets: int
+    max_pages: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -232,12 +232,12 @@ def load_config(
                 ),
                 "discovery.refresh_seconds",
             ),
-            max_faucets=_positive_int(
+            max_pages=_positive_int(
                 discovery.get(
-                    "max_faucets",
+                    "max_pages",
                     250,
                 ),
-                "discovery.max_faucets",
+                "discovery.max_pages",
             ),
         ),
         scoring=ScoringConfig(

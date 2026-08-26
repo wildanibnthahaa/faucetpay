@@ -103,5 +103,5 @@ def test_rank_orders_tasks():
 
     assert (
         ranked[0].task.task_id
-        == fast.task.task_id
+        == fast.task_id
     )
