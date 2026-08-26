@@ -37,8 +37,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     estimated_seconds INTEGER NOT NULL,
     cooldown_seconds INTEGER NOT NULL,
     success_rate REAL NOT NULL DEFAULT 0,
-    currency TEXT NOT NULL DEFAULT '',
     enabled INTEGER NOT NULL DEFAULT 1,
+
     FOREIGN KEY (faucet_id)
         REFERENCES faucets(faucet_id)
         ON DELETE CASCADE
@@ -56,52 +56,35 @@ CREATE TABLE IF NOT EXISTS earnings (
     success INTEGER NOT NULL,
     created_at TEXT NOT NULL,
     error TEXT,
+
     FOREIGN KEY (faucet_id)
         REFERENCES faucets(faucet_id)
         ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_earnings_created_at
-    ON earnings(created_at);
+CREATE INDEX IF NOT EXISTS idx_tasks_faucet
+    ON tasks(faucet_id);
 
 CREATE INDEX IF NOT EXISTS idx_earnings_faucet
     ON earnings(faucet_id);
 
-CREATE INDEX IF NOT EXISTS idx_earnings_task
-    ON earnings(task_id);
-
-CREATE INDEX IF NOT EXISTS idx_tasks_faucet
-    ON tasks(faucet_id);
-
-CREATE INDEX IF NOT EXISTS idx_tasks_enabled
-    ON tasks(enabled);
+CREATE INDEX IF NOT EXISTS idx_earnings_created_at
+    ON earnings(created_at);
 """
 
 
 class Database:
-    """
-    SQLite persistence layer for the recovery application.
-
-    The database stores discovery results, normalized tasks, and
-    execution/earning records. Browser automation is intentionally
-    outside this class.
-    """
+    """SQLite persistence layer for the recovery validation core."""
 
     def __init__(self, path: str) -> None:
-        if not path.strip():
-            raise ValueError("database path cannot be empty")
-
         self.path = Path(path)
-
         self.path.parent.mkdir(
             parents=True,
             exist_ok=True,
         )
 
     @contextmanager
-    def connection(
-        self,
-    ) -> Iterator[sqlite3.Connection]:
+    def connection(self) -> Iterator[sqlite3.Connection]:
         connection = sqlite3.connect(
             self.path,
             timeout=30,
@@ -111,9 +94,7 @@ class Database:
 
         try:
             connection.executescript(SCHEMA)
-
             yield connection
-
             connection.commit()
 
         except Exception:
@@ -124,17 +105,10 @@ class Database:
             connection.close()
 
     def initialize(self) -> None:
-        """
-        Create all database tables and indexes.
-        """
-
         with self.connection():
             pass
 
-    def upsert_faucet(
-        self,
-        faucet: Faucet,
-    ) -> None:
+    def upsert_faucet(self, faucet: Faucet) -> None:
         discovered_at = (
             faucet.discovered_at
             or datetime.now(timezone.utc)
@@ -155,11 +129,9 @@ class Database:
                     coins_json,
                     discovered_at
                 )
-                VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-                )
-                ON CONFLICT(faucet_id)
-                DO UPDATE SET
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+
+                ON CONFLICT(faucet_id) DO UPDATE SET
                     name = excluded.name,
                     url = excluded.url,
                     description = excluded.description,
@@ -183,78 +155,12 @@ class Database:
                         else None
                     ),
                     faucet.health,
-                    json.dumps(
-                        list(faucet.coins),
-                        separators=(",", ":"),
-                    ),
+                    json.dumps(faucet.coins),
                     discovered_at.isoformat(),
                 ),
             )
 
-    def get_faucet(
-        self,
-        faucet_id: str,
-    ) -> sqlite3.Row | None:
-        with self.connection() as db:
-            return db.execute(
-                """
-                SELECT *
-                FROM faucets
-                WHERE faucet_id = ?
-                """,
-                (faucet_id,),
-            ).fetchone()
-
-    def list_faucets(
-        self,
-        limit: int | None = None,
-    ) -> list[sqlite3.Row]:
-        query = """
-            SELECT *
-            FROM faucets
-            ORDER BY
-                paid_7d_usd DESC,
-                name ASC
-        """
-
-        parameters: tuple[int, ...] = ()
-
-        if limit is not None:
-            if limit <= 0:
-                raise ValueError(
-                    "limit must be greater than zero"
-                )
-
-            query += " LIMIT ?"
-            parameters = (limit,)
-
-        with self.connection() as db:
-            return list(
-                db.execute(
-                    query,
-                    parameters,
-                )
-            )
-
-    def delete_faucet(
-        self,
-        faucet_id: str,
-    ) -> bool:
-        with self.connection() as db:
-            cursor = db.execute(
-                """
-                DELETE FROM faucets
-                WHERE faucet_id = ?
-                """,
-                (faucet_id,),
-            )
-
-            return cursor.rowcount > 0
-
-    def upsert_task(
-        self,
-        task: Task,
-    ) -> None:
+    def upsert_task(self, task: Task) -> None:
         with self.connection() as db:
             db.execute(
                 """
@@ -267,23 +173,18 @@ class Database:
                     estimated_seconds,
                     cooldown_seconds,
                     success_rate,
-                    currency,
                     enabled
                 )
-                VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-                )
-                ON CONFLICT(task_id)
-                DO UPDATE SET
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+
+                ON CONFLICT(task_id) DO UPDATE SET
                     faucet_id = excluded.faucet_id,
                     name = excluded.name,
                     task_type = excluded.task_type,
                     reward = excluded.reward,
                     estimated_seconds = excluded.estimated_seconds,
                     cooldown_seconds = excluded.cooldown_seconds,
-                    success_rate = excluded.success_rate,
-                    currency = excluded.currency,
-                    enabled = excluded.enabled
+                    success_rate = excluded.success_rate
                 """,
                 (
                     task.task_id,
@@ -294,95 +195,19 @@ class Database:
                     task.estimated_seconds,
                     task.cooldown_seconds,
                     task.success_rate,
-                    task.currency,
-                    int(task.enabled),
                 ),
             )
 
-    def get_task(
-        self,
-        task_id: str,
-    ) -> sqlite3.Row | None:
+    def disable_task(self, task_id: str) -> None:
         with self.connection() as db:
-            return db.execute(
-                """
-                SELECT *
-                FROM tasks
-                WHERE task_id = ?
-                """,
-                (task_id,),
-            ).fetchone()
-
-    def list_tasks(
-        self,
-        faucet_id: str | None = None,
-        enabled_only: bool = True,
-    ) -> list[sqlite3.Row]:
-        query = """
-            SELECT *
-            FROM tasks
-            WHERE 1 = 1
-        """
-
-        parameters: list[object] = []
-
-        if faucet_id is not None:
-            query += """
-                AND faucet_id = ?
-            """
-            parameters.append(faucet_id)
-
-        if enabled_only:
-            query += """
-                AND enabled = 1
-            """
-
-        query += """
-            ORDER BY name ASC
-        """
-
-        with self.connection() as db:
-            return list(
-                db.execute(
-                    query,
-                    tuple(parameters),
-                )
-            )
-
-    def set_task_enabled(
-        self,
-        task_id: str,
-        enabled: bool,
-    ) -> bool:
-        with self.connection() as db:
-            cursor = db.execute(
+            db.execute(
                 """
                 UPDATE tasks
-                SET enabled = ?
-                WHERE task_id = ?
-                """,
-                (
-                    int(enabled),
-                    task_id,
-                ),
-            )
-
-            return cursor.rowcount > 0
-
-    def delete_task(
-        self,
-        task_id: str,
-    ) -> bool:
-        with self.connection() as db:
-            cursor = db.execute(
-                """
-                DELETE FROM tasks
+                SET enabled = 0
                 WHERE task_id = ?
                 """,
                 (task_id,),
             )
-
-            return cursor.rowcount > 0
 
     def record_earning(
         self,
@@ -403,9 +228,7 @@ class Database:
                     created_at,
                     error
                 )
-                VALUES (
-                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record.faucet_id,
@@ -421,21 +244,57 @@ class Database:
                 ),
             )
 
-            if cursor.lastrowid is None:
-                raise RuntimeError(
-                    "SQLite did not return an earning record ID"
-                )
-
             return int(cursor.lastrowid)
+
+    def get_faucet(
+        self,
+        faucet_id: str,
+    ) -> sqlite3.Row | None:
+        with self.connection() as db:
+            return db.execute(
+                """
+                SELECT *
+                FROM faucets
+                WHERE faucet_id = ?
+                """,
+                (faucet_id,),
+            ).fetchone()
+
+    def list_faucets(self) -> list[sqlite3.Row]:
+        with self.connection() as db:
+            return list(
+                db.execute(
+                    """
+                    SELECT *
+                    FROM faucets
+                    ORDER BY name ASC
+                    """
+                )
+            )
+
+    def list_tasks(
+        self,
+        enabled_only: bool = True,
+    ) -> list[sqlite3.Row]:
+        query = """
+            SELECT *
+            FROM tasks
+        """
+
+        if enabled_only:
+            query += " WHERE enabled = 1"
+
+        query += " ORDER BY reward DESC"
+
+        with self.connection() as db:
+            return list(db.execute(query))
 
     def recent_earnings(
         self,
         limit: int = 20,
     ) -> list[sqlite3.Row]:
         if limit <= 0:
-            raise ValueError(
-                "limit must be greater than zero"
-            )
+            return []
 
         with self.connection() as db:
             return list(
@@ -443,37 +302,14 @@ class Database:
                     """
                     SELECT *
                     FROM earnings
-                    ORDER BY created_at DESC, id DESC
+                    ORDER BY created_at DESC
                     LIMIT ?
                     """,
                     (limit,),
                 )
             )
 
-    def earnings_since(
-        self,
-        created_after: datetime,
-    ) -> list[sqlite3.Row]:
-        with self.connection() as db:
-            return list(
-                db.execute(
-                    """
-                    SELECT *
-                    FROM earnings
-                    WHERE created_at >= ?
-                    ORDER BY created_at ASC, id ASC
-                    """,
-                    (created_after.isoformat(),),
-                )
-            )
-
     def totals(self) -> dict[str, Decimal]:
-        """
-        Return successful recorded amounts grouped by currency.
-
-        Amounts are stored as TEXT to preserve Decimal precision.
-        """
-
         with self.connection() as db:
             rows = db.execute(
                 """
@@ -494,9 +330,7 @@ class Database:
             for row in rows
         }
 
-    def faucet_statistics(
-        self,
-    ) -> list[sqlite3.Row]:
+    def faucet_statistics(self) -> list[sqlite3.Row]:
         with self.connection() as db:
             return list(
                 db.execute(
@@ -518,67 +352,13 @@ class Database:
                             ),
                             0
                         ) AS earnings
-                    FROM faucets AS f
-                    LEFT JOIN earnings AS e
+                    FROM faucets f
+                    LEFT JOIN earnings e
                         ON e.faucet_id = f.faucet_id
                     GROUP BY
                         f.faucet_id,
                         f.name
                     ORDER BY earnings DESC
                     """
-                )
-            )
-
-    def task_statistics(
-        self,
-        task_id: str | None = None,
-    ) -> list[sqlite3.Row]:
-        query = """
-            SELECT
-                task_id,
-                task_type,
-                currency,
-                COUNT(*) AS attempts,
-                COALESCE(
-                    SUM(success),
-                    0
-                ) AS successes,
-                COALESCE(
-                    SUM(
-                        CAST(
-                            actual_amount
-                            AS REAL
-                        )
-                    ),
-                    0
-                ) AS earnings,
-                COALESCE(
-                    AVG(duration_seconds),
-                    0
-                ) AS average_duration
-            FROM earnings
-        """
-
-        parameters: tuple[str, ...] = ()
-
-        if task_id is not None:
-            query += """
-                WHERE task_id = ?
-            """
-            parameters = (task_id,)
-
-        query += """
-            GROUP BY
-                task_id,
-                task_type,
-                currency
-            ORDER BY earnings DESC
-        """
-
-        with self.connection() as db:
-            return list(
-                db.execute(
-                    query,
-                    parameters,
                 )
             )
