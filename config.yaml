@@ -1,0 +1,44 @@
+# FaucetPay Recovery Core
+# Read-only discovery + scoring + scheduler.
+# No CAPTCHA solving, proxy rotation, fingerprint bypass,
+# automated claims, or withdrawals.
+
+database:
+  path: "./data/recovery.db"
+
+browser:
+  enabled: true
+  headless: true
+  timeout_ms: 30000
+
+discovery:
+  enabled: true
+
+  # Public FaucetPay faucet directory.
+  directory_url: "https://faucetpay.io/faucets"
+
+  # How often discovery is refreshed.
+  refresh_seconds: 3600
+
+  # Maximum number of faucet detail pages
+  # processed during one discovery cycle.
+  max_pages: 25
+
+scoring:
+  # Penalty/weight for long cooldown periods.
+  cooldown_weight: 0.15
+
+  # Weight given to historical success rate.
+  success_weight: 0.25
+
+  # Ignore tasks below this score.
+  minimum_score: 0.0
+
+scheduler:
+  enabled: true
+
+  # Seconds between discovery/scoring cycles.
+  interval_seconds: 3600
+
+  # Maximum ranked tasks retained per cycle.
+  max_tasks_per_cycle: 50
