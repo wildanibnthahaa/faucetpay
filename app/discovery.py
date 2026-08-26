@@ -17,7 +17,26 @@ from playwright.async_api import (
 from .models import Faucet
 
 
+CURRENCY_MAP = {
+    "bitcoin": "BTC",
+    "ethereum": "ETH",
+    "tether": "USDT",
+    "litecoin": "LTC",
+    "dogecoin": "DOGE",
+    "bitcoin-cash": "BCH",
+    "dash": "DASH",
+    "digibyte": "DGB",
+    "tron": "TRX",
+    "zcash": "ZEC",
+    "solana": "SOL",
+    "bnb": "BNB",
+    "feyorra": "FEY",
+    "usd-coin": "USDC",
+}
+
+
 def parse_money(value: str) -> Decimal:
+    """Convert values such as '$1,234.50' into Decimal."""
     cleaned = (
         value.replace("$", "")
         .replace(",", "")
@@ -31,27 +50,21 @@ def parse_money(value: str) -> Decimal:
 
 
 def parse_integer(value: str) -> int:
-    match = re.search(
-        r"[\d,]+",
-        value.replace(" ", ""),
-    )
+    """Extract an integer from text such as '1,234 users'."""
+    match = re.search(r"[\d,]+", value)
 
     if not match:
         return 0
 
     try:
-        return int(
-            match.group(0).replace(",", "")
-        )
+        return int(match.group(0).replace(",", ""))
     except ValueError:
         return 0
 
 
 def parse_rating(value: str) -> Decimal | None:
-    match = re.search(
-        r"\d+(?:\.\d+)?",
-        value,
-    )
+    """Extract a decimal rating from text."""
+    match = re.search(r"\d+(?:\.\d+)?", value)
 
     if not match:
         return None
@@ -66,15 +79,14 @@ class FaucetPayDirectory:
     """
     Read-only FaucetPay public-directory collector.
 
-    This class does not:
-    - log in,
-    - submit claims,
-    - complete offerwalls,
-    - watch PTC advertisements,
-    - solve CAPTCHAs,
-    - rotate proxies,
-    - bypass anti-bot controls,
-    - perform withdrawals.
+    This module only reads public directory/detail pages.
+    It does not:
+    - log into accounts
+    - submit claims
+    - complete offers
+    - solve CAPTCHAs
+    - bypass anti-bot controls
+    - perform withdrawals
     """
 
     def __init__(
@@ -92,24 +104,20 @@ class FaucetPayDirectory:
         self._context: BrowserContext | None = None
 
     async def start(self) -> None:
-        if self._playwright is not None:
+        """Start Playwright and Chromium."""
+        if self._context is not None:
             return
 
-        self._playwright = (
-            await async_playwright().start()
+        self._playwright = await async_playwright().start()
+
+        self._browser = await self._playwright.chromium.launch(
+            headless=self.headless,
         )
 
-        self._browser = (
-            await self._playwright.chromium.launch(
-                headless=self.headless,
-            )
-        )
-
-        self._context = (
-            await self._browser.new_context()
-        )
+        self._context = await self._browser.new_context()
 
     async def close(self) -> None:
+        """Close browser resources safely."""
         if self._context is not None:
             await self._context.close()
 
@@ -124,29 +132,28 @@ class FaucetPayDirectory:
         self._playwright = None
 
     async def _new_page(self) -> Page:
+        """Create a new browser page."""
         if self._context is None:
             await self.start()
 
         assert self._context is not None
-
         return await self._context.new_page()
 
     @staticmethod
-    def _extract_faucet_links(
-        soup: BeautifulSoup,
+    def extract_faucet_links(
+        html: str,
         base_url: str,
     ) -> list[tuple[str, str]]:
+        """
+        Extract faucet detail links from directory HTML.
+        """
+        soup = BeautifulSoup(html, "html.parser")
+
         results: dict[str, tuple[str, str]] = {}
 
-        for anchor in soup.find_all(
-            "a",
-            href=True,
-        ):
+        for anchor in soup.find_all("a", href=True):
             href = str(anchor["href"])
-            name = anchor.get_text(
-                " ",
-                strip=True,
-            )
+            name = anchor.get_text(" ", strip=True)
 
             if "/faucets/id/" not in href:
                 continue
@@ -154,53 +161,39 @@ class FaucetPayDirectory:
             if not name:
                 continue
 
-            absolute_url = urljoin(
-                base_url,
-                href,
-            )
+            url = urljoin(base_url, href)
 
-            results[absolute_url] = (
-                name,
-                absolute_url,
-            )
+            results[url] = (name, url)
 
         return list(results.values())
 
     @staticmethod
-    def _parse_detail(
+    def parse_detail(
         name_hint: str,
         url: str,
         html: str,
     ) -> Faucet:
-        soup = BeautifulSoup(
-            html,
-            "html.parser",
-        )
+        """Parse a public faucet detail page."""
+        soup = BeautifulSoup(html, "html.parser")
 
         title = soup.find("h1")
 
         name = (
-            title.get_text(
-                " ",
-                strip=True,
-            )
+            title.get_text(" ", strip=True)
             if title
             else name_hint
         )
 
-        text = soup.get_text(
-            " ",
-            strip=True,
-        )
+        text = soup.get_text(" ", strip=True)
 
         paid_match = re.search(
-            r"Paid this week\s+\$?([\d,.]+)",
+            r"Paid\s+this\s+week\s+\$?([\d,.]+)",
             text,
             re.IGNORECASE,
         )
 
         users_match = re.search(
-            r"Users paid\s+([\d,]+)",
+            r"Users\s+paid\s+([\d,]+)",
             text,
             re.IGNORECASE,
         )
@@ -219,33 +212,18 @@ class FaucetPayDirectory:
 
         coins: list[str] = []
 
-        known_coins = (
-            "BTC",
-            "ETH",
-            "USDT",
-            "LTC",
-            "DOGE",
-            "BCH",
-            "DASH",
-            "DGB",
-            "TRX",
-            "ZEC",
-            "SOL",
-            "BNB",
-            "FEY",
-            "USDC",
-        )
-
-        for coin in known_coins:
+        for coin_name, symbol in CURRENCY_MAP.items():
             if re.search(
-                rf"\b{re.escape(coin)}\b",
+                rf"\b{re.escape(symbol)}\b",
                 text,
+                re.IGNORECASE,
             ):
-                coins.append(coin)
+                coins.append(symbol)
 
         faucet_id_match = re.search(
-            r"/faucets/id/(\d+)",
+            r"/faucets/id/([^/?#]+)",
             url,
+            re.IGNORECASE,
         )
 
         faucet_id = (
@@ -260,48 +238,38 @@ class FaucetPayDirectory:
             url=url,
             description=text[:1000],
             paid_7d_usd=(
-                parse_money(
-                    paid_match.group(1)
-                )
+                parse_money(paid_match.group(1))
                 if paid_match
                 else Decimal("0")
             ),
             users_paid=(
-                parse_integer(
-                    users_match.group(1)
-                )
+                parse_integer(users_match.group(1))
                 if users_match
                 else 0
             ),
             rating=(
-                parse_rating(
-                    rating_match.group(1)
-                )
+                parse_rating(rating_match.group(1))
                 if rating_match
                 else None
             ),
             health=(
-                parse_integer(
-                    health_match.group(1)
-                )
+                parse_integer(health_match.group(1))
                 if health_match
                 else None
             ),
-            coins=tuple(
-                sorted(set(coins))
-            ),
-            discovered_at=datetime.now(
-                timezone.utc
-            ),
+            coins=tuple(sorted(set(coins))),
+            discovered_at=datetime.now(timezone.utc),
         )
 
     async def discover(
         self,
         max_faucets: int = 250,
     ) -> list[Faucet]:
-        if max_faucets <= 0:
-            return []
+        """
+        Discover public faucets from FaucetPay.
 
+        Only GET/read operations are performed.
+        """
         page = await self._new_page()
 
         try:
@@ -313,21 +281,20 @@ class FaucetPayDirectory:
 
             html = await page.content()
 
+            links = self.extract_faucet_links(
+                html,
+                self.directory_url,
+            )
+
         finally:
             await page.close()
 
-        links = self._extract_faucet_links(
-            BeautifulSoup(
-                html,
-                "html.parser",
-            ),
-            self.directory_url,
-        )
-
         faucets: list[Faucet] = []
 
+        assert self._context is not None
+
         for name, url in links[:max_faucets]:
-            detail_page = await self._new_page()
+            detail_page = await self._context.new_page()
 
             try:
                 await detail_page.goto(
@@ -336,17 +303,19 @@ class FaucetPayDirectory:
                     timeout=self.timeout_ms,
                 )
 
-                detail_html = (
-                    await detail_page.content()
-                )
+                detail_html = await detail_page.content()
 
-                faucet = self._parse_detail(
+                faucet = self.parse_detail(
                     name,
                     url,
                     detail_html,
                 )
 
                 faucets.append(faucet)
+
+            except Exception:
+                # One broken faucet page should not stop discovery.
+                continue
 
             finally:
                 await detail_page.close()
@@ -359,10 +328,10 @@ async def discover_once(
     max_faucets: int = 250,
     timeout_ms: int = 30_000,
 ) -> list[Faucet]:
+    """Convenience function for a single discovery run."""
     collector = FaucetPayDirectory(
         directory_url=directory_url,
         timeout_ms=timeout_ms,
-        headless=True,
     )
 
     try:
