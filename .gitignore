@@ -2,7 +2,13 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
+venv/
 .env
+
 data/*.db
-data/*.db-*
-logs/*
+data/*.sqlite
+data/*.sqlite3
+
+logs/*.log
+
+.DS_Store
