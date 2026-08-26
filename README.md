@@ -87,12 +87,12 @@ storage, scoring, scheduling, and monitoring can be developed independently.
                     ┌─────────────────────────┐
                     │      CLI Dashboard      │
                     └─────────────────────────┘
-
+```
 
 ---
 
-Project Structure
-
+### Project Structure
+```
 faucetpay/
 ├── app/
 │   ├── __init__.py
@@ -128,10 +128,10 @@ faucetpay/
 ├── .env.example
 └── README.md
 
-
+```
 ---
 
-Installation
+### Installation
 
 Requirements
 
@@ -185,12 +185,12 @@ playwright install-deps chromium
 
 ---
 
-Configuration
+### Configuration
 
 The application uses config.yaml for configuration.
 
-Example:
-
+## Example:
+```
 database:
   path: "./data/recovery.db"
 
@@ -216,11 +216,11 @@ scheduler:
   max_tasks_per_cycle: 50
 
 The database is created automatically under the configured database path.
-
+```
 
 ---
 
-Usage
+### Usage
 
 Run a single discovery cycle
 
@@ -243,7 +243,7 @@ The dashboard displays stored earnings information, faucet statistics, and recen
 
 ---
 
-Database
+### Database
 
 The application uses SQLite for local persistence.
 
@@ -279,7 +279,7 @@ SQLite WAL mode is enabled for improved reliability during normal application op
 
 ---
 
-Scoring
+### Scoring
 
 Tasks are ranked using several factors.
 
@@ -302,7 +302,7 @@ The resulting score is used to rank available tasks before they enter the schedu
 
 ---
 
-Testing
+### Testing
 
 Run the complete test suite:
 
@@ -325,7 +325,7 @@ The test suite covers configuration loading, SQLite operations, discovery parsin
 
 ---
 
-Docker
+### Docker
 
 Build the containers:
 
@@ -348,7 +348,7 @@ The SQLite database and application logs are persisted through mounted volumes.
 
 ---
 
-Development
+### Development
 
 The repository is intended to be developed through GitHub forks.
 
@@ -378,7 +378,7 @@ Please keep changes focused and include tests when adding or modifying applicati
 
 ---
 
-Configuration Files
+### Configuration Files
 
 File	Purpose
 
@@ -393,7 +393,7 @@ docker-compose.yml	Container orchestration
 
 ---
 
-License
+### License
 
 This project is provided for educational and development purposes.
 
