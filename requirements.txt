@@ -1,0 +1,7 @@
+beautifulsoup4==4.14.2
+playwright==1.55.0
+PyYAML==6.0.3
+rich==14.1.0
+
+pytest==8.4.2
+pytest-asyncio==1.2.0
